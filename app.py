@@ -20,33 +20,41 @@ if uploaded_file:
     # Data Cleaning (Unnamed columns hatana)
     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
 
-    # ERROR FIX: Sabhi Heat No. aur Grade ko String (Text) mein convert karna
-    df['HEAT NO.'] = df['HEAT NO.'].astype(str)
-    df['GRADE'] = df['GRADE'].astype(str)
+    # ERROR FIX & DYNAMIC FILTERS SETUP
+    # Sabhi data ko Text (String) mein convert karna taaki sorting mein error na aaye
+    for col in df.columns:
+        # 'nan' (khali cell) ko theek karna
+        df[col] = df[col].fillna("Blank")
+        df[col] = df[col].astype(str)
 
     # 2. Search & Filter Section
     st.sidebar.header("Filters")
     
-    # Heat No Search 
-    heat_no_list = ["All"] + sorted(df['HEAT NO.'].dropna().unique().tolist())
-    selected_heat = st.sidebar.selectbox("Filter by Heat No", heat_no_list)
-    
-    # Grade Filter
-    grade_list = ["All"] + sorted(df['GRADE'].dropna().unique().tolist())
-    selected_grade = st.sidebar.selectbox("Filter by Grade", grade_list)
+    # DYNAMIC FILTERS: Har column ke liye automatic ek dropdown filter banega
+    selected_filters = {}
+    for col in df.columns:
+        # Har column ki unique values nikal kar sort karna
+        unique_vals = ["All"] + sorted(df[col].unique().tolist())
+        
+        # Dropdown banana
+        selected_val = st.sidebar.selectbox(f"Filter by {col}", unique_vals)
+        
+        # Agar user "All" ke alawa kuch select kare, toh use dictionary mein save karna
+        if selected_val != "All":
+            selected_filters[col] = selected_val
 
     # General Search Bar
-    search_query = st.text_input("🔍 Search anything (Item Name, Drg No, Heat No...)", "")
+    st.markdown("---")
+    search_query = st.text_input("🔍 Search anything (General search across all columns)", "")
 
     # 3. Filtering Logic
     filtered_df = df.copy()
     
-    if selected_heat != "All":
-        filtered_df = filtered_df[filtered_df['HEAT NO.'] == selected_heat]
-    
-    if selected_grade != "All":
-        filtered_df = filtered_df[filtered_df['GRADE'] == selected_grade]
+    # A) Pehle dropdown filters apply karna
+    for col, val in selected_filters.items():
+        filtered_df = filtered_df[filtered_df[col] == val]
         
+    # B) Fir general search box apply karna
     if search_query:
         # Pura row check karega search query ke liye
         filtered_df = filtered_df[filtered_df.apply(lambda row: search_query.lower() in str(row).lower(), axis=1)]
@@ -54,6 +62,7 @@ if uploaded_file:
     # 4. Results Display
     st.success(f"Total Rows Found: {len(filtered_df)}")
     
+    # Table Show karna
     st.dataframe(filtered_df, use_container_width=True)
 
 else:
