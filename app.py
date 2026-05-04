@@ -2,10 +2,11 @@ import streamlit as st
 import pandas as pd
 import os
 import glob
+from st_aggrid import AgGrid, GridOptionsBuilder
 
+# Page Configuration
 st.set_page_config(page_title="Factory Dashboard", layout="wide")
 st.title("📊 Factory Master Dashboard")
-st.markdown("Apni file select karein aur details dekhein.")
 
 excel_files = glob.glob("*.xlsx")
 
@@ -14,52 +15,49 @@ if not excel_files:
 else:
     selected_file = st.sidebar.selectbox("📂 Select Department / File", excel_files)
     
-    # Excel read karna, but temporarily string form mein
+    # Excel read karna
     xls = pd.ExcelFile(selected_file)
     sheet = st.sidebar.selectbox("📑 Select Sheet", xls.sheet_names)
     
-    # ======= JADOO YAHAN HAI (HEADER DETECTOR) =======
-    # Pehle 2 rows padh kar check karte hain ki header kahan hai
+    # Header logic (Pehle jaisa)
     temp_df = pd.read_excel(selected_file, sheet_name=sheet, nrows=2)
-    
-    # Agar pehli row (Index 0) mein bahut saare 'Unnamed' hain, iska matlab header 2nd row (header=1) pe hai
     unnamed_count = sum('Unnamed' in str(col) for col in temp_df.columns)
     
-    if unnamed_count > 2:
-        header_row = 1  # 2nd line ko header maano
-    else:
-        header_row = 0  # 1st line ko header maano
-    
-    # Ab file ko theek header ke sath read karna
+    header_row = 1 if unnamed_count > 2 else 0
     df = pd.read_excel(selected_file, sheet_name=sheet, header=header_row)
-    # =================================================
 
-    # 'Unnamed' columns ko puri tarah hata dena (jo khali merge ki wajah se aate hain)
+    # Data Cleaning
     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
-
     for col in df.columns:
         df[col] = df[col].fillna("Blank").astype(str)
 
-    st.sidebar.header("🔍 Filters")
+    # Sidebar Filters hata diye gaye hain taaki table mein hi filter ho sake
+    st.sidebar.info("💡 Tip: Filter and Search directly within the table headers!")
+
+    # ==========================================
+    # AG-GRID SETUP (Advance Excel-like Table)
+    # ==========================================
+    st.success(f"Total Rows: {len(df)}")
     
-    selected_filters = {}
-    for col in df.columns:
-        unique_vals = ["All"] + sorted(df[col].unique().tolist())
-        selected_val = st.sidebar.selectbox(f"Filter by {col}", unique_vals)
-        
-        if selected_val != "All":
-            selected_filters[col] = selected_val
-
-    st.markdown("---")
-    search_query = st.text_input(f"🔍 Search anything in {selected_file}", "")
-
-    filtered_df = df.copy()
+    gb = GridOptionsBuilder.from_dataframe(df)
+    gb.configure_default_column(
+        editable=False, 
+        groupable=True, 
+        value=True, 
+        enableRowGroup=True, 
+        aggFunc='sum', 
+        sortable=True, 
+        filter=True # Ye column filter enable karega
+    )
     
-    for col, val in selected_filters.items():
-        filtered_df = filtered_df[filtered_df[col] == val]
-        
-    if search_query:
-        filtered_df = filtered_df[filtered_df.apply(lambda row: search_query.lower() in str(row).lower(), axis=1)]
+    gridOptions = gb.build()
 
-    st.success(f"Total Rows Found: {len(filtered_df)}")
-    st.dataframe(filtered_df, use_container_width=True)
+    AgGrid(
+        df,
+        gridOptions=gridOptions,
+        enable_enterprise_modules=True, # Advance filtering ke liye
+        fit_columns_on_grid_load=False, # Columns apne hisab se width lenge
+        height=600, # Table ki height
+        width='100%',
+        theme='streamlit' # Theme ('light', 'dark', 'streamlit' etc.)
+    )
