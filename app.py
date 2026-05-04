@@ -19,7 +19,7 @@ else:
     xls = pd.ExcelFile(selected_file)
     sheet = st.sidebar.selectbox("📑 Select Sheet", xls.sheet_names)
     
-    # Header logic (Pehle jaisa)
+    # Header logic 
     temp_df = pd.read_excel(selected_file, sheet_name=sheet, nrows=2)
     unnamed_count = sum('Unnamed' in str(col) for col in temp_df.columns)
     
@@ -31,14 +31,34 @@ else:
     for col in df.columns:
         df[col] = df[col].fillna("Blank").astype(str)
 
-    # Sidebar Filters hata diye gaye hain taaki table mein hi filter ho sake
-    st.sidebar.info("💡 Tip: Filter and Search directly within the table headers!")
+    st.sidebar.info("💡 Tip: Use column headers to filter like Excel.")
 
     # ==========================================
-    # AG-GRID SETUP (Advance Excel-like Table)
+    # CUSTOM TOOLBAR (Search & Download)
     # ==========================================
+    col1, col2 = st.columns([3, 1]) # Screen ko 2 hisso mein baantna
+    
+    with col1:
+        # Global Search Box (Ye theek waisa hi kaam karega jaisa default search karta tha)
+        search_query = st.text_input("🔍 Global Search (Puri table mein kuch bhi dhoondein)", "")
+        
+    with col2:
+        st.write("") # Thodi spacing ke liye
+        st.write("")
+        # Download Button (Data ko CSV mein download karne ke liye)
+        csv = df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Download Data",
+            data=csv,
+            file_name=f"{selected_file}_{sheet}.csv",
+            mime='text/csv',
+        )
+
     st.success(f"Total Rows: {len(df)}")
     
+    # ==========================================
+    # AG-GRID SETUP
+    # ==========================================
     gb = GridOptionsBuilder.from_dataframe(df)
     gb.configure_default_column(
         editable=False, 
@@ -47,17 +67,20 @@ else:
         enableRowGroup=True, 
         aggFunc='sum', 
         sortable=True, 
-        filter=True # Ye column filter enable karega
+        filter=True # Excel jaisa column filter
     )
+    
+    # Hamare Global Search box ko AgGrid ke sath connect karna
+    gb.configure_grid_options(quickFilterText=search_query)
     
     gridOptions = gb.build()
 
     AgGrid(
         df,
         gridOptions=gridOptions,
-        enable_enterprise_modules=True, # Advance filtering ke liye
-        fit_columns_on_grid_load=False, # Columns apne hisab se width lenge
-        height=600, # Table ki height
+        enable_enterprise_modules=True, 
+        fit_columns_on_grid_load=False, 
+        height=650, # Height badha di hai taaki Fullscreen jaisa feel aaye
         width='100%',
-        theme='streamlit' # Theme ('light', 'dark', 'streamlit' etc.)
+        theme='streamlit' 
     )
