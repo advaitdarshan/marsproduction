@@ -5,6 +5,27 @@ import glob
 
 # Page Configuration
 st.set_page_config(page_title="Factory Dashboard", layout="wide")
+
+# ==========================================
+# CSS MAGIC: Margin Khatam Karna aur Font Chota Karna
+# ==========================================
+st.markdown("""
+    <style>
+        /* Main screen ki left aur right blank space (margin) ko hatana */
+        .main .block-container {
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+            padding-top: 1rem !important;
+            max-width: 100% !important;
+        }
+        
+        /* Table ke andar text ko thoda chota aur compact karna */
+        [data-testid="stDataFrame"] {
+            font-size: 13px !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 st.title("📊 Factory Master Dashboard")
 
 excel_files = glob.glob("*.xlsx")
@@ -28,13 +49,11 @@ else:
     df = pd.read_excel(selected_file, sheet_name=sheet, header=header_row)
 
     # ==========================================
-    # NEW DATA CLEANING & MERGED HEADER FIX
+    # DATA CLEANING & MERGED HEADER FIX
     # ==========================================
     
-    # 1. Jo columns sach mein puri tarah khali (100% blank) hain, sirf unhe hatao
     df = df.dropna(how='all', axis=1)
 
-    # 2. Merged headers ko delete karne ki jagah, unhe numbering dena
     new_cols = []
     last_valid_col = "Column"
     col_count = 1
@@ -50,12 +69,11 @@ else:
             
     df.columns = new_cols
 
-    # 3. Khali cells mein 'Blank' likhna
     for col in df.columns:
         df[col] = df[col].fillna("Blank").astype(str)
 
     # ==========================================
-    # SMART FILTERS (Mobile Friendly Expander)
+    # SMART FILTERS
     # ==========================================
     with st.expander("🔽 Click here to apply Filters"):
         st.markdown("Yahan se aap kisi bhi column par filter laga sakte hain:")
@@ -81,4 +99,4 @@ else:
     # ==========================================
     # NATIVE DATAFRAME
     # ==========================================
-    st.dataframe(filtered_df, use_container_width=True, height=600)
+    st.dataframe(filtered_df, use_container_width=True, height=650)
