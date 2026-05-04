@@ -19,32 +19,51 @@ else:
     xls = pd.ExcelFile(selected_file)
     sheet = st.sidebar.selectbox("📑 Select Sheet", xls.sheet_names)
     
-    # Header logic (Aapki files ke liye)
+    # Header logic
     temp_df = pd.read_excel(selected_file, sheet_name=sheet, nrows=2)
     unnamed_count = sum('Unnamed' in str(col) for col in temp_df.columns)
     
-    header_row = 1 if unnamed_count > 2 else 0
+    # Agar 5 se zyada unnamed hain, toh actual header row 1 pe hai
+    header_row = 1 if unnamed_count > 5 else 0 
     df = pd.read_excel(selected_file, sheet_name=sheet, header=header_row)
 
-    # Data Cleaning
-    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
+    # ==========================================
+    # NEW DATA CLEANING & MERGED HEADER FIX
+    # ==========================================
+    
+    # 1. Jo columns sach mein puri tarah khali (100% blank) hain, sirf unhe hatao
+    df = df.dropna(how='all', axis=1)
+
+    # 2. Merged headers ko delete karne ki jagah, unhe numbering dena
+    new_cols = []
+    last_valid_col = "Column"
+    col_count = 1
+
+    for col in df.columns:
+        if "Unnamed" in str(col):
+            col_count += 1
+            new_cols.append(f"{last_valid_col} ({col_count})")
+        else:
+            last_valid_col = str(col)
+            col_count = 1
+            new_cols.append(last_valid_col)
+            
+    df.columns = new_cols
+
+    # 3. Khali cells mein 'Blank' likhna
     for col in df.columns:
         df[col] = df[col].fillna("Blank").astype(str)
 
     # ==========================================
     # SMART FILTERS (Mobile Friendly Expander)
     # ==========================================
-    # Ye ek box banayega jise aap mobile par click karke khol ya band kar sakte hain
-    with st.expander("🔽 Click here to apply Filters (PO#, ITEM, STATUS etc.)"):
+    with st.expander("🔽 Click here to apply Filters"):
         st.markdown("Yahan se aap kisi bhi column par filter laga sakte hain:")
-        
-        # Screen ko 4 columns mein baantna taaki filters sundar dikhein
         cols = st.columns(4) 
         selected_filters = {}
         
         for i, col in enumerate(df.columns):
             unique_vals = ["All"] + sorted(df[col].unique().tolist())
-            # Har filter ko ek column mein fit karna
             selected_val = cols[i % 4].selectbox(f"{col}", unique_vals, key=col)
             
             if selected_val != "All":
@@ -60,12 +79,6 @@ else:
     st.success(f"Total Rows: {len(filtered_df)} (Original: {len(df)})")
     
     # ==========================================
-    # NATIVE DATAFRAME (With Fullscreen & Download)
+    # NATIVE DATAFRAME
     # ==========================================
-    # Ye Streamlit ka asli table hai. Iske top-right corner par hover karne se aapko
-    # 1. Search (Magnifying Glass)
-    # 2. Download (CSV) - Jo sirf filtered data download karega!
-    # 3. Fullscreen (Arrows) - Mobile ke liye best!
-    # Ye teeno options milenge.
-    
     st.dataframe(filtered_df, use_container_width=True, height=600)
